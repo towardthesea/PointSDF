@@ -1,6 +1,6 @@
 # Handle SDF Dataset.
 
-# import tensorflow as tf
+import tensorflow as tf
 
 # if __name__ == '__main__':
 #     tf.enable_eager_execution()
@@ -15,8 +15,8 @@ from pypcd import pypcd
 
 # from visualization import plot_3d_points, visualize_points_overlay
 
-sys.path.append('/home/markvandermerwe/catkin_ws/src/ll4ma_3d_reconstruction/src/data_generation/')
-from object_cloud import process_object_cloud
+# sys.path.append('/home/markvandermerwe/catkin_ws/src/ll4ma_3d_reconstruction/src/data_generation/')
+from data_generation.object_cloud import process_object_cloud
 # from object_frame import find_object_frame
 
 _POINT_CLOUD_SIZE = 1000
@@ -31,21 +31,21 @@ def get_sdf_dataset(tffiles, batch_size=32, sdf_count=128):
     
     # Setup parsing of objects.
     sdf_feature_description = {
-        'point_clouds': tf.FixedLenFeature([], tf.string),
-        'xyzs': tf.FixedLenFeature([], tf.string),
-        'labels': tf.FixedLenFeature([], tf.string),
+        'point_clouds': tf.io.FixedLenFeature([], tf.string),
+        'xyzs': tf.io.FixedLenFeature([], tf.string),
+        'labels': tf.io.FixedLenFeature([], tf.string),
     }
 
     def _parse_sdf_function(example_proto):
-        sdf_example = tf.parse_single_example(example_proto, sdf_feature_description)
+        sdf_example = tf.io.parse_single_example(example_proto, sdf_feature_description)
 
-        point_clouds = tf.parse_tensor(sdf_example['point_clouds'], out_type=tf.float32)
-        xyzs = tf.parse_tensor(sdf_example['xyzs'], out_type=tf.float32)
-        labels = tf.parse_tensor(sdf_example['labels'], out_type=tf.float32)
+        point_clouds = tf.io.parse_tensor(sdf_example['point_clouds'], out_type=tf.float32)
+        xyzs = tf.io.parse_tensor(sdf_example['xyzs'], out_type=tf.float32)
+        labels = tf.io.parse_tensor(sdf_example['labels'], out_type=tf.float32)
 
         # Downsample SDF points randomly.
         idxs = tf.range(tf.shape(xyzs)[0])
-        ridxs = tf.random_shuffle(idxs)[:sdf_count]
+        ridxs = tf.random.shuffle(idxs)[:sdf_count]
 
         # Important to use same indices on each in order to align labels properly.
         xyzs = tf.gather(xyzs, ridxs, axis=0)
@@ -56,7 +56,8 @@ def get_sdf_dataset(tffiles, batch_size=32, sdf_count=128):
     dataset = dataset.map(_parse_sdf_function, num_parallel_calls=4)
     dataset = dataset.shuffle(3000)
     #dataset = dataset.batch(batch_size, drop_remainder=True)
-    dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size)) # Works w/ tf 1.9
+    # dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size)) # Works w/ tf 1.9
+    dataset = tf.data.Dataset.batch(dataset, batch_size=batch_size,drop_remainder=True)
     dataset = dataset.prefetch(64)
 
     return dataset

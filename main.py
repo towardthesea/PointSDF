@@ -8,7 +8,7 @@ from sdf_pointconv_model import get_pointconv_model
 from voxel_cnn_model import get_voxel_cnn_model
 
 # Get running function.
-from run_sdf_model import run_sdf
+from run_sdf_model import run as run_sdf
 from run_voxel_model import run_voxel
 from mise import mesh_objects
 
@@ -54,10 +54,10 @@ args = parser.parse_args()
 # Set up model/logging folders as needed.
 model_folder = os.path.join(args.model_path, args.model_name)
 if not os.path.exists(model_folder):
-   os.mkdir(model_folder)
+   os.makedirs(model_folder)
 logs_folder = os.path.join(args.log_path, args.model_name)
 if not os.path.exists(logs_folder):
-   os.mkdir(logs_folder)
+   os.makedirs(logs_folder)
 
 model_ = args.model_func
 if model_ == 'pointconv':

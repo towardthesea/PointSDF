@@ -24,19 +24,21 @@ def run(get_model, train_path, validation_path, model_path, logs_path, batch_siz
     validation_dataset = get_sdf_dataset(validation_files, batch_size=batch_size, sdf_count=sdf_count)
 
     # Setup iterators.
-    train_iterator = train_dataset.make_initializable_iterator()
+    # train_iterator = train_dataset.make_initializable_iterator()
+    train_iterator = tf.compat.v1.data.make_initializable_iterator(train_dataset)
     train_next_point_cloud, train_next_xyz, train_next_label = train_iterator.get_next()
 
-    val_iterator = validation_dataset.make_initializable_iterator()
+    # val_iterator = validation_dataset.make_initializable_iterator()
+    val_iterator = tf.compat.v1.data.make_initializable_iterator(validation_dataset)
     val_next_point_cloud, val_next_xyz, val_next_label = val_iterator.get_next()
 
     # Setup optimizer.
-    batch = tf.get_variable('batch', [], initializer=tf.constant_initializer(0), trainable=False)
+    batch = tf.compat.v1.get_variable('batch', [], initializer=tf.constant_initializer(0), trainable=False)
     learn_rate = get_learning_rate(batch, batch_size, learning_rate)
-    tf.summary.scalar('learning_rate', learn_rate)
+    tf.compat.v1.summary.scalar('learning_rate', learn_rate)
     
     if optimizer == 'adam':
-        opt = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        opt = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate)
     elif optimizer == 'momentum':
         opt = tf.train.MomentumOptimizer(learning_rate=learn_rate, momentum=0.9) # Make this another hyperparam?
 
@@ -44,34 +46,36 @@ def run(get_model, train_path, validation_path, model_path, logs_path, batch_siz
     bn_decay = get_bn_decay(batch, batch_size)
 
     # Setup model operations.
-    points = tf.placeholder(tf.float32, name="point_cloud")
-    xyz_in = tf.placeholder(tf.float32, name="query_points")
-    sdf_labels = tf.placeholder(tf.float32, name="query_labels")
-    is_training = tf.placeholder(tf.bool, name="is_training")
-    sdf_prediction, loss, debug = get_model(points, xyz_in, sdf_labels, is_training, bn_decay, batch_size=batch_size, alpha=alpha, loss_function=loss_function)
+    points = tf.compat.v1.placeholder(tf.float32, name="point_cloud")
+    xyz_in = tf.compat.v1.placeholder(tf.float32, name="query_points")
+    sdf_labels = tf.compat.v1.placeholder(tf.float32, name="query_labels")
+    is_training = tf.compat.v1.placeholder(tf.bool, name="is_training")
+    # sdf_prediction, loss, debug = get_model(points, xyz_in, sdf_labels, is_training, bn_decay, batch_size=batch_size, alpha=alpha, loss_function=loss_function)
+    sdf_prediction, loss, debug = get_model(points, xyz_in, sdf_labels, is_training, bn_decay, batch_size=batch_size,
+                                            loss_feature=loss_function)
 
     # Get update ops for the BN.
-    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
     
     # Setup training operation.
     with tf.control_dependencies(update_ops):
         train_op = opt.minimize(loss, global_step=batch)
 
     # Setup tensorboard operation.
-    merged = tf.summary.merge_all()
+    merged = tf.compat.v1.summary.merge_all()
     
     print("Variable Counts: ")
     print("Encoder: " + str(get_num_trainable_variables('encoder')))
     print("SDF: " + str(get_num_trainable_variables('sdf')))
-    init = tf.global_variables_initializer()
+    init = tf.compat.v1.global_variables_initializer()
     
     # Save/Restore model.
-    saver = tf.train.Saver()
+    saver = tf.compat.v1.train.Saver()
 
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
 
         # Setup tensorboard.
-        f_writer = tf.summary.FileWriter(logs_path, sess.graph)
+        f_writer = tf.compat.v1.summary.FileWriter(logs_path, sess.graph)
 
         # Init variables.
         if not train or warm_start:
@@ -125,7 +129,7 @@ def run(get_model, train_path, validation_path, model_path, logs_path, batch_siz
 
             avg_loss = total_loss / float(examples)
 
-            print(avg_loss)
+            print('Average loss: {}'.format(avg_loss))
 
             if train:
                 f_writer.add_summary(tf.Summary(
